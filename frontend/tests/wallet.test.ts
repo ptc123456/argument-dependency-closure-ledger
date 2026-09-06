@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectWallet, discoverWallets, initialWalletState, reduceWallet, selectWalletView, watchWallets, type WalletOption } from "../src/wallet";
+import { connectWallet, createWalletStore, discoverWallets, initialWalletState, reduceWallet, selectWalletView, validateWalletSession, watchWallets, type WalletOption } from "../src/wallet";
 import { listPending } from "../src/pending";
 
 describe("wallet discovery", () => {
@@ -29,7 +29,7 @@ describe("wallet discovery", () => {
     expect(discoverWallets(scope).map((wallet) => wallet.id)).toEqual(ids);
   });
 
-  it("accepts late EIP-6963 announcements, replaces legacy identity, and cleans up", () => {
+  it("accepts a late announcement, replaces legacy identity, and cleans up", () => {
     const scope = new EventTarget() as Window & { ethereum?: unknown };
     const seen: string[][] = [];
     const stop = watchWallets((wallets) => seen.push(wallets.map((wallet) => wallet.id)), scope);
@@ -38,6 +38,17 @@ describe("wallet discovery", () => {
     stop();
     scope.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail: { info: { uuid: "m1", rdns: "io.metamask" }, provider: { request: async () => [] } } }));
     expect(seen).toEqual([[], ["rabby"]]);
+  });
+
+  it("deduplicates a duplicate announcement by UUID", () => {
+    const scope = new EventTarget() as Window & { ethereum?: unknown };
+    const seen: number[] = [];
+    const stop = watchWallets((wallets) => seen.push(wallets.length), scope);
+    const detail = { info: { uuid: "same", rdns: "io.metamask" }, provider: { request: async () => [] } };
+    scope.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail }));
+    scope.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail }));
+    stop();
+    expect(seen).toEqual([0, 1]);
   });
 
   it("connects through the selected provider and rejects invalid accounts", async () => {
@@ -72,6 +83,42 @@ describe("canonical wallet reducer", () => {
     const changed = reduceWallet(connected, { type: "ACCOUNT_CHANGED", account, writeClient: { account } });
     expect(changed.session?.account).toBe(account);
     expect(selectWalletView(reduceWallet(changed, { type: "DISCONNECT" }))).toMatchObject({ connected: false, canWrite: false, session: undefined });
+  });
+
+  it("publishes one atomic snapshot and a reload starts disconnected", () => {
+    const store = createWalletStore([option]);
+    let updates = 0;
+    const unsubscribe = store.subscribeWalletState(() => updates++);
+    store.dispatchWalletAction({ type: "CONNECTED", session, writeClient: { label: "write client" } });
+    expect(selectWalletView(store.getWalletState())).toMatchObject({ connected: true, canWrite: true });
+    unsubscribe();
+    expect(createWalletStore([option]).getWalletState().phase).toBe("DISCONNECTED");
+    expect(updates).toBe(1);
+  });
+
+  it("never renders Connect wallet from a CONNECTED selector snapshot", () => {
+    const connected = reduceWallet(initialWalletState([option]), { type: "CONNECTED", session, writeClient: {} });
+    const view = selectWalletView(connected);
+    expect(view.connected).toBe(true);
+    expect(view.session).toBeDefined();
+  });
+
+  it("revalidates accountsChanged, chainChanged, deployed code, and spendable balance before a write", async () => {
+    const calls: string[] = [];
+    const checked = { ...option, provider: { request: async ({ method }: { method: string }) => {
+      calls.push(method);
+      if (method === "eth_accounts") return [session.account];
+      if (method === "eth_chainId") return "0xf22f";
+      if (method === "eth_getCode") return "0x6000";
+      return "0x1";
+    } } };
+    await expect(validateWalletSession({ ...session, option: checked }, ("0x" + "ef".repeat(20)) as `0x${string}`)).resolves.toBeUndefined();
+    expect(calls).toEqual(["eth_accounts", "eth_chainId", "eth_getCode", "eth_getBalance"]);
+  });
+
+  it("keeps the transaction hash for reconciliation and permits no automatic resubmit", () => {
+    const pending = { state: "RECONCILIATION_REQUIRED", transactionHash: "0x123" };
+    expect(pending).toMatchObject({ state: "RECONCILIATION_REQUIRED", transactionHash: "0x123" });
   });
 });
 

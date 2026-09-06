@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { bindWriteClient, listCases, readCase, readCreated, readVersion, reconcile, submitWrite, type CaseRecord, type WriteClient } from "./contract";
 import { listPending, reservePending, updatePending, type PendingWrite } from "./pending";
-import { bindWalletSession, connectWallet, discoverWallets, initialWalletState, reduceWallet, selectWalletView, STUDIONET_CHAIN_ID, watchWallets, type WalletOption } from "./wallet";
+import { transactionStatusProps, type TransactionPhase } from "./transaction";
+import { bindWalletSession, connectWallet, createWalletStore, discoverWallets, selectWalletView, STUDIONET_CHAIN_ID, validateWalletSession, watchWallets, type WalletOption } from "./wallet";
 
 const SAMPLE_GRAPH = JSON.stringify(
   {
@@ -38,7 +39,6 @@ const SAMPLE_REPLIES = JSON.stringify(
 );
 const EMPTY_GRAPH = JSON.stringify({ root_id: "claim", nodes: [{ id: "claim", type: "CLAIM", text: "Decision claim" }], edges: [] }, null, 2);
 const EMPTY_REPLIES = JSON.stringify({ replies: [] }, null, 2);
-type TransactionPhase = "IDLE" | "WAITING_FOR_WALLET" | "SUBMITTED" | "WAITING_FOR_FINALITY" | "VERIFYING_EXECUTION" | "VERIFYING_READBACK" | "SUCCESS" | "REJECTED" | "FAILED" | "RECONCILIATION_REQUIRED";
 
 const short = (value: string) => (value ? `${value.slice(0, 7)}…${value.slice(-5)}` : "—");
 
@@ -110,7 +110,9 @@ function WalletIcon({ id }: { id: "metamask" | "okx" | "rabby" }) {
 export default function App() {
   const configured = (import.meta.env.VITE_CONTRACT_ADDRESS || "") as `0x${string}`;
   const [contract, setContract] = useState(configured);
-  const [walletState, walletDispatch] = useReducer(reduceWallet<WriteClient>, discoverWallets(), initialWalletState<WriteClient>);
+  const walletStore = useMemo(() => createWalletStore<WriteClient>(discoverWallets()), []);
+  const walletState = useSyncExternalStore(walletStore.subscribeWalletState, walletStore.getWalletState, walletStore.getWalletState);
+  const walletDispatch = walletStore.dispatchWalletAction;
   const wallet = selectWalletView(walletState);
   const [ids, setIds] = useState<string[]>([]);
   const [caseId, setCaseId] = useState("");
@@ -216,6 +218,7 @@ export default function App() {
     let journal: PendingWrite | undefined;
     let submittedHash: string | undefined;
     try {
+      await validateWalletSession(session, contract);
       journal = await reservePending({
         fingerprint: JSON.stringify([method, args], (_, v) => (typeof v === "bigint" ? v.toString() : v)),
         chain: "studionet",
@@ -452,7 +455,7 @@ export default function App() {
         </section>
 
         {/* Persistent Public Notice & Transaction Progress Indicator */}
-        <aside className="notice-bar" role={transactionPhase === "FAILED" ? "alert" : "status"} aria-live="polite" data-transaction-phase={transactionPhase}>
+        <aside className="notice-bar" {...transactionStatusProps(transactionPhase)}>
           <div className="notice-indicator-slot">
             {["WAITING_FOR_WALLET", "SUBMITTED", "WAITING_FOR_FINALITY", "VERIFYING_EXECUTION", "VERIFYING_READBACK"].includes(transactionPhase) && <span className="spinner" aria-label={transactionPhase.replaceAll("_", " ")} />}
             {transactionPhase === "RECONCILIATION_REQUIRED" && <span className="status-glyph glyph-amber" aria-label="Reconciliation required">!</span>}

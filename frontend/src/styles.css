@@ -558,6 +558,10 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
   .spinner {
     animation: none;
     border-color: var(--color-accent);

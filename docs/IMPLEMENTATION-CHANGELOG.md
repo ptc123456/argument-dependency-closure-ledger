@@ -44,11 +44,14 @@ Verification:
 - Added selected-provider session listeners for account, chain, and disconnect changes; writes now fail closed unless the selected session is on Studionet chain `0xf22f`.
 - Replaced independent wallet/session UI state with one canonical reducer owning phase, providers, session, chain state, SDK write-client binding, errors, chooser visibility, and write eligibility.
 - Added regression coverage for all eight supported-wallet cardinalities plus atomic connect, wrong-chain recovery, account rebinding, disconnect, and selector consistency.
+- Added pre-sign revalidation of the selected account, Studionet chain, deployed contract code, and non-zero spendable GEN; failed checks occur before journal reservation or wallet submission.
+- Added semantic transaction status attributes and reduced-motion handling, and aligned the RPC matrix with the actual explicit one-shot reconciliation flow.
 - Added one shared read guard with in-flight deduplication, safe immutable/history and five-second list caching, one bounded transient retry, subscriber-local cancellation, and generation-based cache invalidation after writes.
 - Preserved an already-returned transaction hash as `RECONCILIATION_REQUIRED` if journal persistence fails after submission; automatic resubmission remains forbidden.
 - Installed `genlayer-js 1.1.8` exposes compatibility `waitForTransactionReceipt` but not current documented `waitForFinalization`/`isSuccessful`; dependency/API resolution remains an explicit `PRE_DEPLOY` blocker rather than an unverified upgrade.
 
 Verification:
 
-- `npm test` → `20 passed`
+- `npm test` → `29 passed`
 - `npm run build` → PASS; existing non-blocking GenLayer SDK bundle-size warning remains
+- Implementation-stage governed project audit → PASS

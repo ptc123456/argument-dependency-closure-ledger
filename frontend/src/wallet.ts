@@ -6,6 +6,7 @@ export type Provider = {
 };
 export type WalletId = "metamask" | "okx" | "rabby";
 export type WalletOption = { id: WalletId; label: string; provider: Provider; uuid?: string };
+export const WALLET_SESSION_STATE_MACHINE = true;
 export type WalletPhase = "DISCONNECTED" | "DISCOVERING" | "CHOOSER_OPEN" | "CONNECTING" | "CONNECTED" | "WRONG_CHAIN" | "ERROR";
 export type WalletSession = { option: WalletOption; account: `0x${string}`; chainId: string };
 export type WalletState<TWriteClient> = {
@@ -58,6 +59,17 @@ export const selectWalletView = <TWriteClient>(state: WalletState<TWriteClient>)
   providers: state.providers,
   error: state.error
 });
+export function createWalletStore<TWriteClient>(providers: WalletOption[] = []) {
+  let state = initialWalletState<TWriteClient>(providers);
+  const listeners = new Set<() => void>();
+  const getWalletState = () => state;
+  const subscribeWalletState = (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); };
+  const dispatchWalletAction = (action: WalletAction<TWriteClient>) => {
+    state = reduceWallet(state, action);
+    listeners.forEach((listener) => listener());
+  };
+  return { getWalletState, subscribeWalletState, dispatchWalletAction };
+}
 const identify = (provider: Provider, info?: AnnounceEvent["detail"]["info"]): WalletId | null => {
   const hint = `${info?.rdns || ""} ${info?.name || ""}`.toLowerCase();
   if (provider.isRabby || hint.includes("rabby")) return "rabby";
@@ -95,6 +107,18 @@ export async function connectWallet(option: WalletOption) {
   const chainId = await option.provider.request({ method: "eth_chainId" }) as string;
   if (!/^0x[0-9a-fA-F]{40}$/.test(accounts?.[0] || "")) throw new Error("Wallet returned no valid account");
   return { option, account: accounts[0].toLowerCase() as `0x${string}`, chainId: chainId.toLowerCase() };
+}
+export async function validateWalletSession(session: WalletSession, contract: `0x${string}`) {
+  const [accounts, chainId, code, balance] = await Promise.all([
+    session.option.provider.request({ method: "eth_accounts" }) as Promise<string[]>,
+    session.option.provider.request({ method: "eth_chainId" }) as Promise<string>,
+    session.option.provider.request({ method: "eth_getCode", params: [contract, "latest"] }) as Promise<string>,
+    session.option.provider.request({ method: "eth_getBalance", params: [session.account, "latest"] }) as Promise<string>
+  ]);
+  if (accounts?.[0]?.toLowerCase() !== session.account) throw new Error("The selected wallet account changed. Reconnect before writing.");
+  if (chainId.toLowerCase() !== STUDIONET_CHAIN_ID) throw new Error("Wrong chain: switch the selected wallet to Studionet before signing.");
+  if (!code || code === "0x" || code === "0x0") throw new Error("No contract is deployed at this address on Studionet.");
+  if (BigInt(balance || "0x0") === 0n) throw new Error("The selected account has no spendable GEN for this action.");
 }
 export function bindWalletSession(provider: Provider, handlers: { accounts(value: unknown): void; chain(value: unknown): void; disconnect(): void }) {
   const accounts = (value: unknown) => handlers.accounts(value), chain = (value: unknown) => handlers.chain(value), disconnect = () => handlers.disconnect();

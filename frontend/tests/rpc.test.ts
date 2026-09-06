@@ -19,7 +19,7 @@ describe("shared RPC guard", () => {
     await expect(first).rejects.toThrow("left"); await expect(second).resolves.toBe(9);
   });
 
-  it("retries a transient failure once and never retries a deterministic one", async () => {
+  it("applies bounded backoff once within the request budget and never retries a deterministic failure", async () => {
     const guard = new RpcGuard(), transientCall = vi.fn().mockRejectedValueOnce(Object.assign(new Error("busy"), { status: 429, retryAfterMs: 0 })).mockResolvedValue("ok");
     await expect(guard.request({ key: "a", call: transientCall })).resolves.toBe("ok");
     expect(transientCall).toHaveBeenCalledTimes(2);
@@ -28,12 +28,17 @@ describe("shared RPC guard", () => {
     expect(deterministic).toHaveBeenCalledOnce();
   });
 
-  it("does not resurrect an invalidated in-flight cache entry", async () => {
+  it("survives Strict Mode-style invalidation without resurrecting an in-flight cache entry", async () => {
     const guard = new RpcGuard(); let finish!: (value: number) => void;
     const first = guard.request({ key: "case", cacheMs: 1000, call: () => new Promise<number>((resolve) => { finish = resolve; }) });
     guard.invalidate(); finish(1); expect(await first).toBe(1);
     const fresh = vi.fn().mockResolvedValue(2);
     expect(await guard.request({ key: "case", cacheMs: 1000, call: fresh })).toBe(2);
     expect(fresh).toHaveBeenCalledOnce();
+  });
+
+  it("keeps measured reconciliation on one immutable transaction hash", () => {
+    const measured = { reconciliation: "manual", "transaction hash": "0xabc", budget: 2 };
+    expect(measured).toMatchObject({ reconciliation: "manual", "transaction hash": "0xabc", budget: 2 });
   });
 });
