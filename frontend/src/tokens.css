@@ -1,0 +1,74 @@
+/* Hallmark · macrostructure: Workbench · genre: modern-minimal · theme: Near-Black Green Paper */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 */
+
+:root {
+  /* Surface / Paper (OKLCH near-black green paper, tinted with anchor hue 155) */
+  --color-paper: oklch(0.14 0.022 155);
+  --color-paper-subtle: oklch(0.165 0.025 155);
+  --color-paper-surface: oklch(0.19 0.028 155);
+  --color-paper-elevated: oklch(0.23 0.032 155);
+  --color-paper-deep: oklch(0.11 0.016 155);
+
+  /* Ink / Text (warm off-white ink & muted sage secondary text) */
+  --color-ink: oklch(0.95 0.012 110);
+  --color-ink-muted: oklch(0.78 0.025 145);
+  --color-ink-faint: oklch(0.64 0.030 145);
+
+  /* Hairline Rules / Borders */
+  --color-rule: oklch(0.29 0.026 155);
+  --color-rule-strong: oklch(0.39 0.032 155);
+
+  /* Signals (one mint/verdigris signal for active/verified; amber for reconcile; red for failure) */
+  --color-accent: oklch(0.83 0.125 162);
+  --color-accent-dim: oklch(0.23 0.05 162);
+  --color-accent-text: oklch(0.12 0.025 155);
+
+  --color-amber: oklch(0.80 0.145 78);
+  --color-amber-dim: oklch(0.23 0.055 78);
+  --color-amber-text: oklch(0.12 0.025 78);
+
+  --color-danger: oklch(0.70 0.19 25);
+  --color-danger-dim: oklch(0.22 0.065 25);
+  --color-danger-text: oklch(0.96 0.01 25);
+
+  /* Focus Ring */
+  --color-focus: oklch(0.85 0.13 162);
+
+  /* 4px-derived Spacing Scale */
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Radius Scale */
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  /* Typography Stacks */
+  --font-display: "Newsreader", "Charter", "Bitstream Charter", "Sitka Text", "Cambria", Georgia, serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+
+  /* Type Scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.844rem;
+  --text-base: 0.938rem;
+  --text-md: 1.063rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-display: clamp(2.2rem, 5vw + 0.5rem, 3.8rem);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+}

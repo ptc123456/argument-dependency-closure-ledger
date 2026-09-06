@@ -26,3 +26,14 @@ Verification:
 
 - `npm test` → `2 passed`
 - `npm run build` → PASS with Vite production bundle; non-blocking single-chunk size warning remains for the GenLayer SDK bundle
+
+## 2026-09-07 — Presentation redesign integration
+
+- Integrated the user-transferred Claude iteration-1 presentation diff within its allowed `App.tsx`, `styles.css`, and `tokens.css` boundary.
+- Codex correction pass restored neutral default form data, aligned the visible transaction lifecycle with the required public phase vocabulary, removed a context-free closure assertion, and added wallet-dialog initial focus, focus trapping, inert background, Escape close, and focus restoration.
+- Browser QA confirmed the detected-wallet empty chooser, no-wallet path, neutral initial graph/replies, semantic page structure, and zero console errors. No contract adapter, journal, wallet provider adapter, dependency, RPC call, or write behavior changed in this increment.
+
+Verification:
+
+- `npm test` → `2 passed`
+- `npm run build` → PASS; existing non-blocking GenLayer SDK bundle-size warning remains
