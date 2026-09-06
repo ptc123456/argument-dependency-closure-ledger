@@ -14,3 +14,15 @@ Verification:
 - `gltest -q tests/test_contract.py` → `25 passed`
 - `genvm-lint check contracts/main.py --json` → lint and semantic validation PASS; 14 methods (7 view, 7 write), constructor 0 parameters
 - `genvm-lint schema contracts/main.py --output contract-schema.json` → PASS
+
+## 2026-09-07 — Functional frontend increment
+
+- Added a React/TypeScript frontend pinned to `genlayer-js 1.1.8` and the current Studionet chain definition.
+- Added supported-provider discovery for MetaMask, OKX Wallet, and Rabby, with one selected provider/account session used for writes.
+- Added public case index/detail/history reads, role-specific write controls, pre-sign Web-Locks/localStorage reservations, immutable transaction journaling, bounded finality checks, and authoritative mutation/create readback.
+- Added explicit public scope copy: the ledger evaluates closure, not truth; landing makes zero RPC calls and no failed/ambiguous transaction is automatically resubmitted.
+
+Verification:
+
+- `npm test` → `2 passed`
+- `npm run build` → PASS with Vite production bundle; non-blocking single-chunk size warning remains for the GenLayer SDK bundle
