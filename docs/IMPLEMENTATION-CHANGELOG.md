@@ -42,11 +42,13 @@ Verification:
 
 - Added page-lifetime EIP-6963 discovery with supported-wallet identity filtering, UUID/provider deduplication, late-announcement updates, and listener cleanup while preserving bounded legacy injection discovery.
 - Added selected-provider session listeners for account, chain, and disconnect changes; writes now fail closed unless the selected session is on Studionet chain `0xf22f`.
+- Replaced independent wallet/session UI state with one canonical reducer owning phase, providers, session, chain state, SDK write-client binding, errors, chooser visibility, and write eligibility.
+- Added regression coverage for all eight supported-wallet cardinalities plus atomic connect, wrong-chain recovery, account rebinding, disconnect, and selector consistency.
 - Added one shared read guard with in-flight deduplication, safe immutable/history and five-second list caching, one bounded transient retry, subscriber-local cancellation, and generation-based cache invalidation after writes.
 - Preserved an already-returned transaction hash as `RECONCILIATION_REQUIRED` if journal persistence fails after submission; automatic resubmission remains forbidden.
 - Installed `genlayer-js 1.1.8` exposes compatibility `waitForTransactionReceipt` but not current documented `waitForFinalization`/`isSuccessful`; dependency/API resolution remains an explicit `PRE_DEPLOY` blocker rather than an unverified upgrade.
 
 Verification:
 
-- `npm test` → `9 passed`
+- `npm test` → `20 passed`
 - `npm run build` → PASS; existing non-blocking GenLayer SDK bundle-size warning remains

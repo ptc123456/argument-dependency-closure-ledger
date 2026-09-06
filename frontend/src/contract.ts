@@ -5,6 +5,7 @@ import type { Provider } from "./wallet";
 import { rpc } from "./rpc";
 
 export type CaseRecord = { id: string; revision: string; phase: string; outcome: string; primary: string; secondary: string; base: unknown; response: unknown; result: unknown };
+export type WriteClient = ReturnType<typeof createClient>;
 const readClient = createClient({ chain: studionet });
 const parse = <T>(value: unknown): T | null => value === "null" ? null : JSON.parse(String(value)) as T;
 
@@ -22,8 +23,10 @@ export async function readCreated(contract: `0x${string}`, creator: `0x${string}
   if (BigInt(String(id)) === 0n) return null;
   return readVersion(contract, String(id), "1");
 }
-export async function submitWrite(provider: Provider, account: `0x${string}`, contract: `0x${string}`, method: string, args: unknown[]) {
-  const client = createClient({ chain: studionet, account, provider: provider as never });
+export function bindWriteClient(provider: Provider, account: `0x${string}`): WriteClient {
+  return createClient({ chain: studionet, account, provider: provider as never });
+}
+export async function submitWrite(client: WriteClient, contract: `0x${string}`, method: string, args: unknown[]) {
   await client.connect("studionet");
   const hash = await client.writeContract({ address: contract, functionName: method, args: args as never, value: 0n });
   rpc.invalidate((key) => key.includes(`:${contract}:`));

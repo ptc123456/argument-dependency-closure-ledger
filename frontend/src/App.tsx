@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { listCases, readCase, readCreated, readVersion, reconcile, submitWrite, type CaseRecord } from "./contract";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { bindWriteClient, listCases, readCase, readCreated, readVersion, reconcile, submitWrite, type CaseRecord, type WriteClient } from "./contract";
 import { listPending, reservePending, updatePending, type PendingWrite } from "./pending";
-import { bindWalletSession, connectWallet, discoverWallets, watchWallets, type WalletOption } from "./wallet";
+import { bindWalletSession, connectWallet, discoverWallets, initialWalletState, reduceWallet, selectWalletView, STUDIONET_CHAIN_ID, watchWallets, type WalletOption } from "./wallet";
 
 const SAMPLE_GRAPH = JSON.stringify(
   {
@@ -110,8 +110,8 @@ function WalletIcon({ id }: { id: "metamask" | "okx" | "rabby" }) {
 export default function App() {
   const configured = (import.meta.env.VITE_CONTRACT_ADDRESS || "") as `0x${string}`;
   const [contract, setContract] = useState(configured);
-  const [wallets, setWallets] = useState(() => discoverWallets());
-  const [session, setSession] = useState<{ option: WalletOption; account: `0x${string}`; chainId: string }>();
+  const [walletState, walletDispatch] = useReducer(reduceWallet<WriteClient>, discoverWallets(), initialWalletState<WriteClient>);
+  const wallet = selectWalletView(walletState);
   const [ids, setIds] = useState<string[]>([]);
   const [caseId, setCaseId] = useState("");
   const [record, setRecord] = useState<CaseRecord | null>();
@@ -123,7 +123,6 @@ export default function App() {
   const [nonce, setNonce] = useState(() => crypto.randomUUID().replaceAll("-", ""));
   const [notice, setNotice] = useState("Ready — public landing makes no RPC calls.");
   const [pending, setPending] = useState<PendingWrite[]>(() => listPending());
-  const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [activeTxHash, setActiveTxHash] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"structured" | "raw">("structured");
@@ -177,24 +176,35 @@ export default function App() {
   }
 
   async function connect(option: WalletOption) {
+    walletDispatch({ type: "CONNECTING", option });
     try {
       const next = await connectWallet(option);
-      setSession(next);
-      setWalletModalOpen(false);
-      setNotice(next.chainId === "0xf22f" ? `${option.label} connected (${short(next.account)}). Ready to sign.` : `${option.label} connected on the wrong chain. Switch to Studionet before signing.`);
+      if (next.chainId !== STUDIONET_CHAIN_ID) {
+        walletDispatch({ type: "WRONG_CHAIN", session: next, error: "Wrong chain: switch the selected wallet to Studionet before signing." });
+        setNotice("Wrong chain: switch the selected wallet to Studionet before signing.");
+        return;
+      }
+      walletDispatch({ type: "CONNECTED", session: next, writeClient: bindWriteClient(option.provider, next.account) });
+      setNotice(`${option.label} connected (${short(next.account)}). Ready to sign.`);
     } catch (e) {
+      walletDispatch({ type: "ERROR", error: String(e) });
       setNotice(String(e));
     }
   }
 
   function disconnect() {
-    setSession(undefined);
+    walletDispatch({ type: "DISCONNECT" });
     setNotice("Wallet disconnected.");
   }
 
+  function openWalletChooser() {
+    walletDispatch({ type: "DISCOVER" });
+    walletDispatch({ type: "OPEN_CHOOSER" });
+  }
+
   async function write(method: string) {
-    if (!session || !validContract) return setNotice("Connect a supported wallet and enter a contract address.");
-    if (session.chainId !== "0xf22f") return setNotice("Wrong chain: switch the selected wallet to Studionet before signing.");
+    if (!wallet.canWrite || !wallet.session || !walletState.writeClient || !validContract) return setNotice("Connect a supported wallet on Studionet and enter a contract address.");
+    const session = wallet.session;
     const args: unknown[] =
       method === "create_graph"
         ? [nonce, responder, graph, 0n]
@@ -219,7 +229,7 @@ export default function App() {
       refreshJournal();
       setTransactionPhase("WAITING_FOR_WALLET");
       setNotice("SIGNING — approve exactly one wallet request.");
-      const hash = await submitWrite(session.option.provider, session.account, contract, method, args);
+      const hash = await submitWrite(walletState.writeClient, contract, method, args);
       submittedHash = hash;
       setActiveTxHash(hash);
       updatePending(journal.key, { state: "SUBMITTED", hash });
@@ -297,28 +307,30 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => watchWallets(setWallets), []);
-  useEffect(() => session ? bindWalletSession(session.option.provider, {
+  useEffect(() => watchWallets((providers) => walletDispatch({ type: "SET_PROVIDERS", providers })), []);
+  useEffect(() => wallet.session ? bindWalletSession(wallet.session.option.provider, {
     accounts: (value) => {
       const account = Array.isArray(value) ? value[0] : "";
       if (!/^0x[0-9a-fA-F]{40}$/.test(account || "")) return disconnect();
-      setSession((current) => current ? { ...current, account: account.toLowerCase() as `0x${string}` } : current);
+      const normalized = account.toLowerCase() as `0x${string}`;
+      walletDispatch({ type: "ACCOUNT_CHANGED", account: normalized, writeClient: bindWriteClient(wallet.session!.option.provider, normalized) });
     },
     chain: (value) => {
       const chainId = String(value).toLowerCase();
-      setSession((current) => current ? { ...current, chainId } : current);
-      setNotice(chainId === "0xf22f" ? "Studionet connection restored." : "Wrong chain: switch the selected wallet to Studionet before signing.");
+      if (chainId === STUDIONET_CHAIN_ID) walletDispatch({ type: "CHAIN_VALID", chainId, writeClient: bindWriteClient(wallet.session!.option.provider, wallet.session!.account) });
+      else walletDispatch({ type: "WRONG_CHAIN", session: { ...wallet.session!, chainId }, error: "Wrong chain: switch the selected wallet to Studionet before signing." });
+      setNotice(chainId === STUDIONET_CHAIN_ID ? "Studionet connection restored." : "Wrong chain: switch the selected wallet to Studionet before signing.");
     },
     disconnect
-  }) : undefined, [session?.option.provider]);
+  }) : undefined, [wallet.session?.option.provider]);
 
   useEffect(() => {
     const background = [document.querySelector<HTMLElement>(".masthead"), document.querySelector<HTMLElement>(".workbench-main")].filter(Boolean) as HTMLElement[];
-    background.forEach((element) => { element.inert = walletModalOpen; });
-    if (walletModalOpen) walletModalRef.current?.querySelector<HTMLElement>("button")?.focus();
+    background.forEach((element) => { element.inert = wallet.chooserOpen; });
+    if (wallet.chooserOpen) walletModalRef.current?.querySelector<HTMLElement>("button")?.focus();
     else walletTriggerRef.current?.focus();
     return () => background.forEach((element) => { element.inert = false; });
-  }, [walletModalOpen]);
+  }, [wallet.chooserOpen]);
 
   // Safely parse graph and response for structured preview if valid JSON
   const parsedBase = useMemo(() => {
@@ -373,17 +385,17 @@ export default function App() {
         </nav>
 
         <div className="masthead-actions">
-          {session ? (
+          {wallet.session ? (
             <div className="session-pill">
-              <WalletIcon id={session.option.id} />
-              <span className="session-label">{session.option.label}</span>
-              <span className="session-address">{short(session.account)}</span>
-              <button className="btn-disconnect" onClick={disconnect} title="Disconnect active wallet">
-                Disconnect
+              <WalletIcon id={wallet.session.option.id} />
+              <span className="session-label">{wallet.session.option.label}</span>
+              <span className="session-address">{short(wallet.session.account)}</span>
+              <button ref={walletTriggerRef} className="btn-disconnect" onClick={wallet.connected ? disconnect : openWalletChooser}>
+                {wallet.connected ? "Disconnect" : "Switch wallet"}
               </button>
             </div>
           ) : (
-            <button ref={walletTriggerRef} className="btn btn-connect" onClick={() => setWalletModalOpen(true)}>
+            <button ref={walletTriggerRef} className="btn btn-connect" onClick={openWalletChooser}>
               Connect wallet
             </button>
           )}
@@ -628,7 +640,7 @@ export default function App() {
                     {availableActions
                       .filter((a) => a !== "create_graph")
                       .map((a) => (
-                        <button key={a} className="btn btn-action" onClick={() => write(a)}>
+                        <button key={a} className="btn btn-action" onClick={() => write(a)} disabled={!wallet.canWrite || !validContract}>
                           {a.replaceAll("_", " ")}
                         </button>
                       ))}
@@ -868,6 +880,7 @@ export default function App() {
                 <button
                   className="btn btn-primary"
                   onClick={() => write(record ? "replace_graph" : "create_graph")}
+                  disabled={!wallet.canWrite || !validContract}
                 >
                   {record ? "Replace draft graph" : "Create graph"}
                 </button>
@@ -907,7 +920,7 @@ export default function App() {
               </div>
 
               <div className="editor-actions">
-                <button className="btn btn-primary" onClick={() => write("put_replies")}>
+                <button className="btn btn-primary" onClick={() => write("put_replies")} disabled={!wallet.canWrite || !validContract}>
                   Save response draft
                 </button>
               </div>
@@ -1062,10 +1075,10 @@ export default function App() {
       </main>
 
       {/* Accessible Wallet Chooser Modal */}
-      {walletModalOpen && (
+      {wallet.chooserOpen && (
         <div
           className="modal-backdrop"
-          onClick={() => setWalletModalOpen(false)}
+          onClick={() => walletDispatch({ type: "CLOSE_CHOOSER" })}
           role="presentation"
         >
           <div
@@ -1076,7 +1089,7 @@ export default function App() {
             aria-labelledby="wallet-modal-title"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
-              if (e.key === "Escape") setWalletModalOpen(false);
+              if (e.key === "Escape") walletDispatch({ type: "CLOSE_CHOOSER" });
               if (e.key === "Tab") {
                 const controls = [...(walletModalRef.current?.querySelectorAll<HTMLElement>('button, [href], input, [tabindex]:not([tabindex="-1"])') || [])];
                 if (!controls.length) return;
@@ -1094,7 +1107,7 @@ export default function App() {
               <button
                 type="button"
                 className="btn-modal-close"
-                onClick={() => setWalletModalOpen(false)}
+                onClick={() => walletDispatch({ type: "CLOSE_CHOOSER" })}
                 aria-label="Close wallet selector"
               >
                 ✕
@@ -1102,9 +1115,9 @@ export default function App() {
             </div>
 
             <div className="modal-body">
-              {wallets.length > 0 ? (
+              {wallet.providers.length > 0 ? (
                 <div className="wallet-options-list">
-                  {wallets.map((w) => (
+                  {wallet.providers.map((w) => (
                     <div key={w.id} className="wallet-option-row">
                       <div className="wallet-option-info">
                         <WalletIcon id={w.id} />
@@ -1113,9 +1126,10 @@ export default function App() {
                       <button
                         className="btn btn-primary btn-sm"
                         onClick={() => connect(w)}
-                        autoFocus={w.id === wallets[0]?.id}
+                        autoFocus={w.id === wallet.providers[0]?.id}
+                        disabled={walletState.phase === "CONNECTING"}
                       >
-                        {session?.option.id === w.id ? "Re-connect" : "Connect"}
+                        {wallet.session?.option.id === w.id ? "Re-connect" : "Connect"}
                       </button>
                     </div>
                   ))}
