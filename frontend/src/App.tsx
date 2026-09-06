@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listCases, readCase, readCreated, readVersion, reconcile, submitWrite, type CaseRecord } from "./contract";
 import { listPending, reservePending, updatePending, type PendingWrite } from "./pending";
-import { connectWallet, discoverWallets, type WalletOption } from "./wallet";
+import { bindWalletSession, connectWallet, discoverWallets, watchWallets, type WalletOption } from "./wallet";
 
 const SAMPLE_GRAPH = JSON.stringify(
   {
@@ -110,7 +110,7 @@ function WalletIcon({ id }: { id: "metamask" | "okx" | "rabby" }) {
 export default function App() {
   const configured = (import.meta.env.VITE_CONTRACT_ADDRESS || "") as `0x${string}`;
   const [contract, setContract] = useState(configured);
-  const [wallets] = useState(() => discoverWallets());
+  const [wallets, setWallets] = useState(() => discoverWallets());
   const [session, setSession] = useState<{ option: WalletOption; account: `0x${string}`; chainId: string }>();
   const [ids, setIds] = useState<string[]>([]);
   const [caseId, setCaseId] = useState("");
@@ -181,7 +181,7 @@ export default function App() {
       const next = await connectWallet(option);
       setSession(next);
       setWalletModalOpen(false);
-      setNotice(`${option.label} connected (${short(next.account)}). Ready to sign.`);
+      setNotice(next.chainId === "0xf22f" ? `${option.label} connected (${short(next.account)}). Ready to sign.` : `${option.label} connected on the wrong chain. Switch to Studionet before signing.`);
     } catch (e) {
       setNotice(String(e));
     }
@@ -194,6 +194,7 @@ export default function App() {
 
   async function write(method: string) {
     if (!session || !validContract) return setNotice("Connect a supported wallet and enter a contract address.");
+    if (session.chainId !== "0xf22f") return setNotice("Wrong chain: switch the selected wallet to Studionet before signing.");
     const args: unknown[] =
       method === "create_graph"
         ? [nonce, responder, graph, 0n]
@@ -203,6 +204,7 @@ export default function App() {
         ? [BigInt(caseId), replies, BigInt(revision)]
         : [BigInt(caseId), BigInt(revision)];
     let journal: PendingWrite | undefined;
+    let submittedHash: string | undefined;
     try {
       journal = await reservePending({
         fingerprint: JSON.stringify([method, args], (_, v) => (typeof v === "bigint" ? v.toString() : v)),
@@ -218,16 +220,19 @@ export default function App() {
       setTransactionPhase("WAITING_FOR_WALLET");
       setNotice("SIGNING — approve exactly one wallet request.");
       const hash = await submitWrite(session.option.provider, session.account, contract, method, args);
+      submittedHash = hash;
       setActiveTxHash(hash);
       updatePending(journal.key, { state: "SUBMITTED", hash });
       refreshJournal();
       setTransactionPhase("WAITING_FOR_FINALITY");
       setNotice(`SUBMITTED ${short(hash)} — use Reconcile; this app never resubmits automatically.`);
     } catch (e) {
-      if (journal && !journal.hash) updatePending(journal.key, { state: "FAILED" });
+      if (journal && !submittedHash) {
+        try { updatePending(journal.key, { state: "FAILED" }); } catch { /* signing is already blocked by unreliable storage */ }
+      }
       refreshJournal();
-      setTransactionPhase(/reject|denied|4001/i.test(String(e)) ? "REJECTED" : "FAILED");
-      setNotice(String(e));
+      setTransactionPhase(submittedHash ? "RECONCILIATION_REQUIRED" : /reject|denied|4001/i.test(String(e)) ? "REJECTED" : "FAILED");
+      setNotice(submittedHash ? `RECONCILIATION_REQUIRED — transaction ${short(submittedHash)} was submitted but its journal update failed. Do not resubmit.` : String(e));
     }
   }
 
@@ -291,6 +296,21 @@ export default function App() {
       document.head.appendChild(meta);
     }
   }, []);
+
+  useEffect(() => watchWallets(setWallets), []);
+  useEffect(() => session ? bindWalletSession(session.option.provider, {
+    accounts: (value) => {
+      const account = Array.isArray(value) ? value[0] : "";
+      if (!/^0x[0-9a-fA-F]{40}$/.test(account || "")) return disconnect();
+      setSession((current) => current ? { ...current, account: account.toLowerCase() as `0x${string}` } : current);
+    },
+    chain: (value) => {
+      const chainId = String(value).toLowerCase();
+      setSession((current) => current ? { ...current, chainId } : current);
+      setNotice(chainId === "0xf22f" ? "Studionet connection restored." : "Wrong chain: switch the selected wallet to Studionet before signing.");
+    },
+    disconnect
+  }) : undefined, [session?.option.provider]);
 
   useEffect(() => {
     const background = [document.querySelector<HTMLElement>(".masthead"), document.querySelector<HTMLElement>(".workbench-main")].filter(Boolean) as HTMLElement[];
