@@ -80,10 +80,17 @@ def text(value, cap: int, empty: bool = False) -> str:
     return value
 
 
-def decimal(value: int) -> str:
+def uint(value) -> int:
+    if isinstance(value, bool):
+        fail("BAD_SCHEMA")
     number = int(value)
     if number < 0 or number > MAX_U256:
         fail("BAD_SCHEMA")
+    return number
+
+
+def decimal(value) -> str:
+    number = uint(value)
     return str(number)
 
 
@@ -210,6 +217,7 @@ class ArgumentDependencyClosureLedger(gl.Contract):
         self.case_count = u256(0)
 
     def _record(self, case_id: u256):
+        uint(case_id)
         raw = self.cases.get(case_id, "")
         if raw == "":
             fail("NOT_FOUND")
@@ -230,7 +238,7 @@ class ArgumentDependencyClosureLedger(gl.Contract):
         self.history[record["id"] + ":" + str(revision)] = encoded
 
     def _expect(self, record, caller: str, role: str, phase, expected_revision: u256):
-        if int(record["revision"]) != int(expected_revision):
+        if int(record["revision"]) != uint(expected_revision):
             fail("STALE_REVISION")
         if record[role] != caller:
             fail("FORBIDDEN")
@@ -265,7 +273,7 @@ class ArgumentDependencyClosureLedger(gl.Contract):
             return u256(existing)
         if int(self.case_count) >= 32:
             fail("CAPACITY")
-        parent_id = int(parent)
+        parent_id = uint(parent)
         if parent_id:
             parent_record = self._record(parent)
             if parent_record["phase"] not in TERMINAL_PHASES or parent_record["primary"] != creator or parent_record["secondary"] != secondary:
@@ -409,7 +417,7 @@ class ArgumentDependencyClosureLedger(gl.Contract):
     def evaluate_closure(self, id: u256, expected_revision: u256) -> None:
         record = self._record(id)
         caller = address(gl.message.sender_address)
-        if int(record["revision"]) != int(expected_revision):
+        if int(record["revision"]) != uint(expected_revision):
             fail("STALE_REVISION")
         if record["phase"] != "FROZEN" or record["accepted_attempts"] != 0:
             fail("BAD_PHASE")
@@ -419,7 +427,7 @@ class ArgumentDependencyClosureLedger(gl.Contract):
     def retry_closure(self, id: u256, expected_revision: u256) -> None:
         record = self._record(id)
         caller = address(gl.message.sender_address)
-        if int(record["revision"]) != int(expected_revision):
+        if int(record["revision"]) != uint(expected_revision):
             fail("STALE_REVISION")
         now = int(datetime.now(timezone.utc).timestamp())
         if record["phase"] != "UNRESOLVED" or record["accepted_attempts"] >= 3:
@@ -430,6 +438,7 @@ class ArgumentDependencyClosureLedger(gl.Contract):
 
     @gl.public.view
     def get_case(self, case_id: u256) -> str:
+        uint(case_id)
         return self.cases.get(case_id, "null")
 
     @gl.public.view
@@ -455,8 +464,8 @@ class ArgumentDependencyClosureLedger(gl.Contract):
 
     @gl.public.view
     def list_cases(self, start_id: u256, limit: u256) -> str:
-        start = int(start_id)
-        size = int(limit)
+        start = uint(start_id)
+        size = uint(limit)
         if start < 1 or start > 33 or size < 1 or size > 4:
             fail("BAD_PAGE")
         ids = [str(value) for value in range(start, min(int(self.case_count), start + size - 1) + 1)]
@@ -465,16 +474,17 @@ class ArgumentDependencyClosureLedger(gl.Contract):
 
     @gl.public.view
     def list_actor(self, actor: Address, offset: u256, limit: u256) -> str:
-        position = int(offset)
-        size = int(limit)
+        position = uint(offset)
+        size = uint(limit)
         if position < 0 or position > 32 or size < 1 or size > 4:
             fail("BAD_PAGE")
         return self._page(json.loads(self.actor_index.get(address(actor), "[]")), position, size)
 
     @gl.public.view
     def list_children(self, parent_id: u256, offset: u256, limit: u256) -> str:
-        position = int(offset)
-        size = int(limit)
+        uint(parent_id)
+        position = uint(offset)
+        size = uint(limit)
         if position < 0 or position > 32 or size < 1 or size > 4:
             fail("BAD_PAGE")
         return self._page(json.loads(self.child_index.get(parent_id, "[]")), position, size)

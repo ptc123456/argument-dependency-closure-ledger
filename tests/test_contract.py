@@ -221,3 +221,127 @@ def test_retry_cooldown_and_exhaustion(setup):
     assert current["phase"] == "EXHAUSTED"
     with pytest.raises(Exception, match="BAD_PHASE"):
         contract.retry_closure(case_id, 7)
+
+
+@pytest.mark.parametrize(
+    "edges",
+    [
+        [
+            {"from": "a", "to": "b", "type": "SUPPORTS"},
+            {"from": "b", "to": "a", "type": "SUPPORTS"},
+        ],
+        [
+            {"from": "a", "to": "b", "type": "ATTACKS"},
+            {"from": "b", "to": "a", "type": "ATTACKS"},
+        ],
+        [
+            {"from": "a", "to": "b", "type": "SUPPORTS"},
+            {"from": "b", "to": "a", "type": "ATTACKS"},
+        ],
+    ],
+)
+def test_disconnected_support_attack_and_mixed_cycles_are_invalid(setup, edges):
+    vm, contract, owner, responder, outsider = setup
+    base = {
+        "root_id": "root",
+        "nodes": [
+            {"id": "root", "type": "CLAIM", "text": "Ready"},
+            {"id": "a", "type": "CLAIM", "text": "Disconnected A"},
+            {"id": "b", "type": "OBJECTION", "text": "Disconnected B"},
+        ],
+        "edges": edges,
+    }
+    case_id = freeze(vm, contract, owner, responder, [], base)
+    vm.sender = outsider
+    contract.evaluate_closure(case_id, 4)
+    assert record(contract, case_id)["outcome"] == "GRAPH_INVALID"
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda base: base["nodes"].append({"id": "root", "type": "CLAIM", "text": "duplicate"}),
+        lambda base: base["edges"].append({"from": "root", "to": "root", "type": "SUPPORTS"}),
+        lambda base: base["edges"].append({"from": "missing", "to": "root", "type": "ATTACKS"}),
+        lambda base: base["nodes"].__setitem__(0, {"id": "root", "type": "OBJECTION", "text": "wrong root"}),
+        lambda base: base["nodes"].__setitem__(1, {"id": "BAD-ID", "type": "OBJECTION", "text": "bad id"}),
+        lambda base: base["nodes"].__setitem__(1, {"id": "cost", "type": "OBJECTION", "text": True}),
+    ],
+)
+def test_invalid_graph_shapes_are_rejected_before_create(setup, mutate):
+    vm, contract, owner, responder, _ = setup
+    base = graph()
+    mutate(base)
+    before_count = int(contract.get_count())
+    with pytest.raises(Exception, match="BAD_SCHEMA"):
+        create(vm, contract, owner, responder, base)
+    assert int(contract.get_count()) == before_count
+    assert int(contract.get_id_by_nonce(owner, NONCE)) == 0
+
+
+def test_response_target_and_size_boundaries_are_no_write(setup):
+    vm, contract, owner, responder, _ = setup
+    case_id = create(vm, contract, owner, responder)
+    contract.lock_graph(case_id, 1)
+    vm.sender = responder
+    before = contract.get_case(case_id)
+    cases = [
+        {"replies": [{"target": "root", "text": "Claim is not an objection"}]},
+        {"replies": [{"target": "cost", "text": "one"}, {"target": "cost", "text": "two"}]},
+        {"replies": [{"target": "cost", "text": "x" * 385}]},
+        {"replies": [], "extra": True},
+    ]
+    for response in cases:
+        with pytest.raises(Exception, match="BAD_SCHEMA"):
+            contract.put_replies(case_id, canon(response), 2)
+        assert contract.get_case(case_id) == before
+
+
+def test_parent_child_and_pagination_readback(setup):
+    vm, contract, owner, responder, outsider = setup
+    parent = freeze(vm, contract, owner, responder, [], {
+        "root_id": "root", "nodes": [{"id": "root", "type": "CLAIM", "text": "Ready"}], "edges": []
+    })
+    vm.sender = outsider
+    contract.evaluate_closure(parent, 4)
+    vm.sender = owner
+    child = contract.create_graph("1123456789abcdef0123456789abcdef", responder, canon(graph()), parent)
+    assert int(child) == 2
+    assert json.loads(contract.list_children(parent, 0, 1)) == {"ids": ["2"], "next": "0"}
+    assert json.loads(contract.list_cases(1, 1)) == {"ids": ["1"], "next": "2"}
+    assert json.loads(contract.list_cases(2, 4)) == {"ids": ["2"], "next": "0"}
+    with pytest.raises(Exception, match="BAD_PAGE"):
+        contract.list_cases(0, 1)
+    with pytest.raises(Exception, match="BAD_PAGE"):
+        contract.list_actor(owner, 33, 1)
+
+
+def test_nonterminal_or_different_party_parent_rejects_without_reservation(setup):
+    vm, contract, owner, responder, outsider = setup
+    parent = create(vm, contract, owner, responder)
+    with pytest.raises(Exception, match="BAD_PARENT"):
+        contract.create_graph("2123456789abcdef0123456789abcdef", responder, canon(graph()), parent)
+    assert int(contract.get_count()) == 1
+    contract.lock_graph(parent, 1)
+    vm.sender = responder
+    contract.put_replies(parent, canon({"replies": []}), 2)
+    contract.freeze_replies(parent, 3)
+    vm.sender = outsider
+    contract.evaluate_closure(parent, 4)
+    vm.sender = owner
+    with pytest.raises(Exception, match="BAD_PARENT"):
+        contract.create_graph("3123456789abcdef0123456789abcdef", outsider, canon(graph()), parent)
+    assert int(contract.get_count()) == 1
+
+
+def test_bool_and_aggregate_caps_are_rejected_without_mutation(setup):
+    vm, contract, owner, responder, _ = setup
+    before = int(contract.get_count())
+    oversized = canon(graph()) + (" " * 8192)
+    with pytest.raises(Exception, match="BAD_JSON"):
+        contract.create_graph(NONCE, responder, oversized, 0)
+    assert int(contract.get_count()) == before
+    case_id = create(vm, contract, owner, responder)
+    with pytest.raises(Exception):
+        contract.lock_graph(case_id, True)
+    assert record(contract, case_id)["revision"] == "1"
