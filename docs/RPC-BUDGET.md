@@ -8,6 +8,22 @@ FRONTEND_SCOPE: APPLICABLE
 STUDIO_SCOPE: APPLICABLE
 MULTI_CLIENT_JUSTIFICATION: One account-free read client is shared globally; one selected-provider write client is bound atomically to the active wallet account and replaced on session changes.
 
+## STUDIO RPC MEASUREMENT CAPABILITY PROBE
+
+STUDIO_MATRIX_STATUS: COMPLETE
+STUDIO_CAPABILITY_PROBE_STATUS: COMPLETE
+STUDIO_MEASUREMENT_MODE: OBSERVABLE_ACTION_LEDGER
+STUDIO_MEASUREMENT_TIMING: PRE_E2E
+STUDIO_CAPABILITY_PROBE_AT: 2026-09-07T03:34:19+07:00
+STUDIO_FIRST_ACTION_AT: NOT_STARTED
+STUDIO_E2E_STARTED_AT: NOT_STARTED
+STUDIO_CAPABILITY_TOOL_OR_API: Studio Logs panel in the existing Chrome browser session
+STUDIO_CAPABILITY_CHECK: Opened Studio without contract interaction and verified the dedicated RPC filter plus hash/method search surface before the first Studio action.
+STUDIO_CAPABILITY_RESULT: Observable per-action RPC log evidence is available; physical-network request totals are not claimed.
+STUDIO_REPLAY_FOR_MEASUREMENT: NO
+
+The exact Studio action ledger will be appended during the uninterrupted deploy/test run. No deploy, contract call, wallet signature, or transaction was performed by this capability probe.
+
 ## FRONTEND RPC BUDGET MATRIX
 
 FRONTEND_MATRIX_STATUS: COMPLETE
