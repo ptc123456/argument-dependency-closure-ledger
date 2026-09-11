@@ -345,3 +345,20 @@ def test_bool_and_aggregate_caps_are_rejected_without_mutation(setup):
     with pytest.raises(Exception):
         contract.lock_graph(case_id, True)
     assert record(contract, case_id)["revision"] == "1"
+
+
+def test_revision_reserve_boundaries_leave_three_evaluation_attempts(setup):
+    vm, contract, owner, responder, _ = setup
+    case_id = create(vm, contract, owner, responder)
+    for expected_revision in range(1, 26):
+        contract.replace_graph(case_id, canon(graph()), expected_revision)
+    assert record(contract, case_id)["revision"] == "26"
+    with pytest.raises(Exception, match="CAPACITY"):
+        contract.replace_graph(case_id, canon(graph()), 26)
+
+    contract.lock_graph(case_id, 26)
+    vm.sender = responder
+    contract.put_replies(case_id, canon({"replies": []}), 27)
+    assert record(contract, case_id)["revision"] == "28"
+    with pytest.raises(Exception, match="CAPACITY"):
+        contract.put_replies(case_id, canon({"replies": []}), 28)

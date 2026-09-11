@@ -315,7 +315,7 @@ class ArgumentDependencyClosureLedger(gl.Contract):
         record = self._record(id)
         caller = address(gl.message.sender_address)
         self._expect(record, caller, "primary", ("BASE_DRAFT",), expected_revision)
-        if int(record["revision"]) > 26:
+        if int(record["revision"]) > 25:
             fail("CAPACITY")
         base = validate_base(parse_json(base_json, 8192))
         record["base"] = base
@@ -336,7 +336,7 @@ class ArgumentDependencyClosureLedger(gl.Contract):
         record = self._record(id)
         caller = address(gl.message.sender_address)
         self._expect(record, caller, "secondary", ("BASE_LOCKED", "RESPONSE_DRAFT"), expected_revision)
-        if int(record["revision"]) > 28:
+        if int(record["revision"]) > 27:
             fail("CAPACITY")
         response = validate_response(parse_json(response_json, 6144), record["base"])
         record["response"] = response

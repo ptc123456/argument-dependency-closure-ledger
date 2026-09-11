@@ -55,3 +55,16 @@ Verification:
 - `npm test` → `29 passed`
 - `npm run build` → PASS; existing non-blocking GenLayer SDK bundle-size warning remains
 - Implementation-stage governed project audit → PASS
+
+## 2026-09-11 — Anonymous PRE_DEPLOY corrections
+
+- Fixed `RESPONSE_DRAFT` action routing and rendered the real response controls under integration coverage so saving and freezing replies are both reachable.
+- Replaced the shared-array pending journal with per-reservation records, exclusive locked mutations, immutable transaction hashes, orphan/index rebuild, verified writes, unsigned-rejection cleanup, and a hard 32-record capacity.
+- Corrected contract revision reserve boundaries to leave six revisions after the final base replacement and four after the final response replacement; added exact boundary regressions.
+- Refreshed read-only Studio account evidence against the currently selected Studio account and recorded a local browser render check without making a transaction.
+- No dependency, public contract signature, actor authority, result schema, product scope, or automatic retry behavior changed.
+
+Verification:
+
+- `gltest -q tests/test_contract.py` → `26 passed`
+- `npm test` → `34 passed` across five files

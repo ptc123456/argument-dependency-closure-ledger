@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { bindWriteClient, listCases, readCase, readCreated, readVersion, reconcile, submitWrite, type CaseRecord, type WriteClient } from "./contract";
-import { listPending, reservePending, updatePending, type PendingWrite } from "./pending";
+import { listPending, removeUnsignedPending, reservePending, updatePending, type PendingWrite } from "./pending";
+import { actionsForPhase } from "./workflow";
 import { transactionStatusProps, type TransactionPhase } from "./transaction";
 import { bindWalletSession, connectWallet, createWalletStore, discoverWallets, selectWalletView, STUDIONET_CHAIN_ID, validateWalletSession, watchWallets, type WalletOption } from "./wallet";
+import { ResponseActions } from "./ResponseActions";
 
 const SAMPLE_GRAPH = JSON.stringify(
   {
@@ -136,15 +138,7 @@ export default function App() {
   const refreshJournal = () => setPending(listPending());
   const revision = record?.revision || "0";
 
-  const availableActions = useMemo(() => {
-    if (!record) return ["create_graph"];
-    if (record.phase === "BASE_DRAFT") return ["replace_graph", "lock_graph"];
-    if (["BASE_LOCKED", "RESPONSE_DRAFT"].includes(record.phase)) return ["put_replies"];
-    if (record.phase === "RESPONSE_DRAFT") return ["freeze_replies"];
-    if (record.phase === "FROZEN") return ["evaluate_closure"];
-    if (record.phase === "UNRESOLVED") return ["retry_closure"];
-    return [];
-  }, [record]);
+  const availableActions = useMemo(() => actionsForPhase(record?.phase), [record]);
 
   // Derive which stage of the 3-stage workflow is currently active for the loaded case
   const activeStage = useMemo(() => {
@@ -235,13 +229,16 @@ export default function App() {
       const hash = await submitWrite(walletState.writeClient, contract, method, args);
       submittedHash = hash;
       setActiveTxHash(hash);
-      updatePending(journal.key, { state: "SUBMITTED", hash });
+      await updatePending(journal.key, { state: "SUBMITTED", hash });
       refreshJournal();
       setTransactionPhase("WAITING_FOR_FINALITY");
       setNotice(`SUBMITTED ${short(hash)} — use Reconcile; this app never resubmits automatically.`);
     } catch (e) {
       if (journal && !submittedHash) {
-        try { updatePending(journal.key, { state: "FAILED" }); } catch { /* signing is already blocked by unreliable storage */ }
+        try {
+          if (/reject|denied|4001/i.test(String(e))) await removeUnsignedPending(journal.key);
+          else await updatePending(journal.key, { state: "RECONCILE" });
+        } catch { /* signing is already blocked by unreliable storage */ }
       }
       refreshJournal();
       setTransactionPhase(submittedHash ? "RECONCILIATION_REQUIRED" : /reject|denied|4001/i.test(String(e)) ? "REJECTED" : "FAILED");
@@ -257,7 +254,7 @@ export default function App() {
       const result = await reconcile(item.hash as `0x${string}`);
       setTransactionPhase("VERIFYING_EXECUTION");
       if (!result.success) {
-        updatePending(item.key, { state: "FAILED" });
+        await updatePending(item.key, { state: "FAILED" });
         setTransactionPhase("FAILED");
         setNotice("FINALIZED with failed execution; no success claimed.");
       } else {
@@ -269,11 +266,11 @@ export default function App() {
           ? latest?.revision === "1"
           : !!latest && BigInt(latest.revision) > BigInt(item.preRevision);
         if (!verified) {
-          updatePending(item.key, { state: "RECONCILE" });
+          await updatePending(item.key, { state: "RECONCILE" });
           setTransactionPhase("RECONCILIATION_REQUIRED");
           setNotice("Execution finalized, but authoritative readback does not yet prove the mutation.");
         } else {
-          updatePending(item.key, { state: "SUCCEEDED" });
+          await updatePending(item.key, { state: "SUCCEEDED" });
           setTransactionPhase("SUCCESS");
           setNotice("Finalized execution and authoritative readback confirmed.");
           setRecord(latest);
@@ -281,7 +278,7 @@ export default function App() {
         }
       }
     } catch (e) {
-      updatePending(item.key, { state: "RECONCILE" });
+      await updatePending(item.key, { state: "RECONCILE" });
       setTransactionPhase("RECONCILIATION_REQUIRED");
       setNotice(`RECONCILE — ${String(e)}`);
     }
@@ -922,11 +919,7 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="editor-actions">
-                <button className="btn btn-primary" onClick={() => write("put_replies")} disabled={!wallet.canWrite || !validContract}>
-                  Save response draft
-                </button>
-              </div>
+              <ResponseActions phase={record?.phase} canWrite={wallet.canWrite && validContract} onWrite={write} />
             </div>
           </div>
         </section>
