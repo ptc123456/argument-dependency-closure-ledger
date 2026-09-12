@@ -66,7 +66,7 @@ Verification:
 
 Verification:
 
-- `gltest -q tests/test_contract.py` → `26 passed`
+- `gltest -q tests/test_contract.py` → `26 passed` on the pre-correction revision `5d7c521626c3f90595ef6d8087c1814675c413f2`
 - `npm test` → `34 passed` across five files
 
 ## 2026-09-12 — Studio address decoding correction
@@ -77,7 +77,7 @@ Verification:
 
 Verification:
 
-- `gltest -q tests/test_contract.py` → `26 passed`
+- `gltest -q tests/test_contract.py` → `27 passed`, including the integer ABI address regression
 - `genvm-lint check contracts/main.py --json` → lint and semantic validation PASS; 14 methods (7 view, 7 write), constructor 0 parameters
 - `genvm-lint schema contracts/main.py --output contract-schema.json` → PASS
 - `npm test` → `34 passed` across five files

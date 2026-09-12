@@ -88,7 +88,7 @@ The review package and prompt are evidence wrappers, not deployable source. Any 
 
 `frontend/package-lock.json` pins the npm stable release `genlayer-js 1.1.8`. Its Studionet-compatible API exposes `waitForTransactionReceipt` with `TransactionStatus.FINALIZED`; the adapter additionally requires `txExecutionResultName === FINISHED_WITH_RETURN`. Current official documentation reserves `genlayer-js 2.0.0-rc.1` for the Consensus v0.6 preview and warns not to select a prerelease through the default tag. This package targets stable Studionet, so it does not silently cross to the preview SDK/network. A temporary read-only package inspection confirmed the RC contains both `studionet` and `studioDevnet`, but no dependency was changed.
 
-`genvm-lint` reports that a newer py-genlayer runner exists. The installed runner nevertheless passed lint, semantic validation, schema extraction and all 26 Direct Mode tests on these exact bytes. Deployment must still confirm Studio accepts these exact source bytes before submission; failure invalidates approval and requires correction/re-review.
+`genvm-lint` reports that a newer py-genlayer runner exists. The installed runner nevertheless passed lint, semantic validation, schema extraction and all 27 Direct Mode tests on these exact bytes. Deployment must still confirm Studio accepts these exact source bytes before submission; failure invalidates approval and requires correction/re-review.
 
 ## Bounded Studio deployment and E2E plan
 
