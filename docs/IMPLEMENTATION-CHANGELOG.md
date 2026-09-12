@@ -68,3 +68,17 @@ Verification:
 
 - `gltest -q tests/test_contract.py` → `26 passed`
 - `npm test` → `34 passed` across five files
+
+## 2026-09-12 — Studio address decoding correction
+
+- Corrected the shared `address()` boundary helper to accept the integer representation emitted by Studio for ABI `Address` arguments, while retaining the existing `Address.as_bytes` path and rejecting values outside 160 bits.
+- The first bounded live `create_graph` probe finalized with semantic `ERROR` (`0x6b6814f5a332d23a4722adaccbf26c7c770d0ab1672098a631b7932c696ef24b`) and authoritative `get_count() = 0`; this negative evidence is retained.
+- No public method signature, lifecycle rule, authority check, result schema, or retry behavior changed.
+
+Verification:
+
+- `gltest -q tests/test_contract.py` → `26 passed`
+- `genvm-lint check contracts/main.py --json` → lint and semantic validation PASS; 14 methods (7 view, 7 write), constructor 0 parameters
+- `genvm-lint schema contracts/main.py --output contract-schema.json` → PASS
+- `npm test` → `34 passed` across five files
+- `npm run build` → PASS with the existing non-blocking bundle-size warning

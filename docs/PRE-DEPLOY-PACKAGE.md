@@ -1,12 +1,12 @@
 # PRE_DEPLOY Review Package
 
-PACKAGE_ID: ADCL-PREDEPLOY-5D7C521-20260911
+PACKAGE_ID: ADCL-PREDEPLOY-8F147A9-20260912
 CHECKPOINT: PRE_DEPLOY
 WORKFLOW: Build
 TASK_ID: argument-dependency-closure-ledger
 PROJECT_PATH: E:\Genlayer-Projects\argument-dependency-closure-ledger
-SOURCE_REVISION: 5d7c521626c3f90595ef6d8087c1814675c413f2
-SOURCE_TREE_STATUS: CLEAN
+SOURCE_REVISION: 8f147a992e55fd32c44a85560cbea3a72a0da339
+SOURCE_TREE_STATUS: CLEAN FOR REVIEWED ARTIFACTS; historical deployment manifest pending corrected deployment
 STUDIO_NETWORK: Studionet, chain ID 61999 (`0xf22f`)
 STUDIO_DEPLOYER: 0x15872d1887b8ff7322F2aa7c3c535f1F00dbb452 (selected; 1,000,000 GEN observed 2026-09-11)
 CONTRACT_LIFECYCLE: INTENTIONALLY FROZEN — this Task deploys one non-upgradeable contract; no proxy, upgrader, migration method, or administrator role exists.
@@ -19,7 +19,7 @@ Freeze a finite claim/objection graph, accept one direct reply per objection fro
 
 | Artifact | SHA-256 |
 |---|---|
-| `contracts/main.py` | `8C530959079A9CF8C4E32E7F0DDFED91869C4390677B85DC6D6D068371B9790A` |
+| `contracts/main.py` | `ABEF0C4C17A13835F774FEA7EEBE31FF4F105ADDEBF01C8B20E7AECFA08D8A3D` |
 | `tests/test_contract.py` | `555E4FFEA2B6C3055CD49A49BF0D906C3C85561E7FCF7FFB130B399051FED234` |
 | `contract-schema.json` | `34F88A39FDCD8A3AA2C83A64117501C363AA4A7E70D466C5A3243DFC7BAC0DDD` |
 | `frontend/package.json` | `A83D7A93EB5672AA5589BBE70ECE454D140DEC2F408458EDD2E9CA751CC8E56C` |
@@ -55,7 +55,14 @@ The review package and prompt are evidence wrappers, not deployable source. Any 
 - `npm run build` in `frontend`: PASS; only the disclosed non-blocking bundle-size warning remains.
 - Governed project audit at `Implementation`: PASS.
 - Governed project audit at `PreDeploy`: PASS after the read-only Studio measurement capability probe.
-- Working tree was clean at source revision `5d7c521626c3f90595ef6d8087c1814675c413f2` before this package-only wrapper update.
+- Working tree was clean for the reviewed source and package artifacts at source revision `8f147a992e55fd32c44a85560cbea3a72a0da339`; the historical deployment manifest remains pending replacement after corrected deployment.
+
+## Correction after bounded Studio probe
+
+- The first live `create_graph` probe used the prior source revision and finalized at `0x6b6814f5a332d23a4722adaccbf26c7c770d0ab1672098a631b7932c696ef24b`, but Explorer reports semantic `ERROR` with `OverflowError` in `address()` because Studio supplied an `Address` argument as an integer.
+- Authoritative readback remained `get_count() = 0`; no state mutation occurred. The failed transaction is retained as a visible negative test and is not reused or hidden.
+- Revision `8f147a992e55fd32c44a85560cbea3a72a0da339` adds the minimum bounded integer-to-20-byte conversion in `address()`, preserving the public signature, validation boundary, and all existing lifecycle invariants.
+- This correction package supersedes the prior PRE_DEPLOY package for any new deployment. The prior deployed contract remains a historical failed-probe target and must not be used for release evidence.
 
 ## Anonymous-review correction delta
 
@@ -98,7 +105,7 @@ The review package and prompt are evidence wrappers, not deployable source. Any 
 
 ## Known limits and explicit non-claims
 
-- No Studio deployment, transaction, live receipt, deployed address or authoritative live readback exists yet.
+- One bounded Studio probe transaction exists and is explicitly recorded above as finalized with semantic error and unchanged state. No successful corrected deployment or corrected live E2E exists yet.
 - GitHub target `ptc123456/argument-dependency-closure-ledger` and Vercel target `shingg/argument-dependency-closure-ledger` are user-confirmed; nothing has been pushed or deployed publicly.
 - The production bundle warning (~751 kB minified JS) is caused primarily by the GenLayer SDK and is not a correctness failure; no speculative code-splitting dependency was added.
 - PRE_DEPLOY approval, if granted, authorizes only progression to the separately controlled Studio action. It is not POST_DEPLOY_TEST or release approval.
