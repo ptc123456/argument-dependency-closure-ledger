@@ -20,7 +20,7 @@ Freeze a finite claim/objection graph, accept one direct reply per objection fro
 | Artifact | SHA-256 |
 |---|---|
 | `contracts/main.py` | `ABEF0C4C17A13835F774FEA7EEBE31FF4F105ADDEBF01C8B20E7AECFA08D8A3D` |
-| `tests/test_contract.py` | `555E4FFEA2B6C3055CD49A49BF0D906C3C85561E7FCF7FFB130B399051FED234` |
+| `tests/test_contract.py` | `A1281AF627D92C663184489E243DD9750AD3CFF325E63E881276D03481D63929` |
 | `contract-schema.json` | `34F88A39FDCD8A3AA2C83A64117501C363AA4A7E70D466C5A3243DFC7BAC0DDD` |
 | `frontend/package.json` | `A83D7A93EB5672AA5589BBE70ECE454D140DEC2F408458EDD2E9CA751CC8E56C` |
 | `frontend/package-lock.json` | `B2FAD8AEE6091647866F2E42474D5B40F85EE521E11B74FF277695962FA6F531` |
@@ -48,7 +48,7 @@ The review package and prompt are evidence wrappers, not deployable source. Any 
 
 ## Verified local evidence
 
-- `gltest -q tests/test_contract.py`: 26 passed.
+- `gltest -q tests/test_contract.py`: 27 passed, including a Direct Mode regression for integer ABI address decoding.
 - `genvm-lint check contracts/main.py --json`: PASS; lint 3/3, semantic validation PASS, 14 methods, 7 views, 7 writes, constructor has zero parameters.
 - `genvm-lint schema contracts/main.py --output contract-schema.json`: PASS and reproduced the allowlisted schema.
 - `npm test` in `frontend`: 34 passed across five test files.
@@ -62,6 +62,7 @@ The review package and prompt are evidence wrappers, not deployable source. Any 
 - The first live `create_graph` probe used the prior source revision and finalized at `0x6b6814f5a332d23a4722adaccbf26c7c770d0ab1672098a631b7932c696ef24b`, but Explorer reports semantic `ERROR` with `OverflowError` in `address()` because Studio supplied an `Address` argument as an integer.
 - Authoritative readback remained `get_count() = 0`; no state mutation occurred. The failed transaction is retained as a visible negative test and is not reused or hidden.
 - Revision `8f147a992e55fd32c44a85560cbea3a72a0da339` adds the minimum bounded integer-to-20-byte conversion in `address()`, preserving the public signature, validation boundary, and all existing lifecycle invariants.
+- The allowlisted Direct Mode suite now includes an integer ABI address regression; the test fixture passes raw bytes as the ABI-shaped integer representation observed in Studio.
 - This correction package supersedes the prior PRE_DEPLOY package for any new deployment. The prior deployed contract remains a historical failed-probe target and must not be used for release evidence.
 
 ## Anonymous-review correction delta

@@ -77,6 +77,16 @@ def test_create_replay_indexes_history_and_nonce_conflict(setup):
     assert contract.get_case(case_id) == before
 
 
+def test_create_accepts_integer_abi_address_representation(setup):
+    vm, contract, owner, responder, _ = setup
+    responder_int = int.from_bytes(responder, "big")
+    vm.sender = owner
+    case_id = contract.create_graph(NONCE, responder_int, canon(graph()), 0)
+    current = record(contract, case_id)
+    assert current["secondary"] == "0x" + responder.hex()
+    assert int(contract.get_count()) == 1
+
+
 def test_authority_cas_duplicate_json_and_unknown_keys_are_no_write(setup):
     vm, contract, owner, responder, outsider = setup
     case_id = create(vm, contract, owner, responder)
