@@ -96,6 +96,10 @@ def decimal(value) -> str:
 
 def address(value: Address) -> str:
     raw = value.as_bytes if hasattr(value, "as_bytes") else value
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        if raw < 0 or raw >= 1 << 160:
+            fail("BAD_ADDRESS")
+        raw = raw.to_bytes(20, "big")
     result = "0x" + bytes(raw).hex()
     if not ADDRESS_RE.fullmatch(result):
         fail("BAD_ADDRESS")
