@@ -769,6 +769,7 @@ export default function App() {
 
                   <div className="history-form">
                     <div className="input-group">
+                      <label htmlFor="history-revision">Revision to inspect</label>
                       <input
                         id="history-revision"
                         value={historyRevInput}
