@@ -3,7 +3,7 @@ import { bindWriteClient, listCases, readCase, readCreated, readVersion, reconci
 import { listPending, removeUnsignedPending, reservePending, updatePending, type PendingWrite } from "./pending";
 import { actionsForPhase } from "./workflow";
 import { transactionStatusProps, type TransactionPhase } from "./transaction";
-import { bindWalletSession, connectWallet, createWalletStore, discoverWallets, selectWalletView, STUDIO_DEVNET_CHAIN_ID, validateWalletSession, watchWallets, type WalletOption } from "./wallet";
+import { bindWalletSession, connectWallet, createWalletStore, discoverWallets, formatWalletError, selectWalletView, STUDIO_DEVNET_CHAIN_ID, validateWalletSession, watchWallets, type WalletOption } from "./wallet";
 import { ResponseActions } from "./ResponseActions";
 
 const SAMPLE_GRAPH = JSON.stringify(
@@ -155,7 +155,7 @@ export default function App() {
       setIds(page?.ids || []);
       setNotice("Case index loaded from Studio Devnet.");
     } catch (e) {
-      setNotice(String(e));
+      setNotice(formatWalletError(e));
     }
   }
 
@@ -167,7 +167,7 @@ export default function App() {
       setCaseId(id);
       setNotice(value ? `Case ${id} loaded.` : "Case not found.");
     } catch (e) {
-      setNotice(String(e));
+      setNotice(formatWalletError(e));
     }
   }
 
@@ -183,8 +183,8 @@ export default function App() {
       walletDispatch({ type: "CONNECTED", session: next, writeClient: bindWriteClient(option.provider, next.account) });
       setNotice(`${option.label} connected (${short(next.account)}). Ready to sign.`);
     } catch (e) {
-      walletDispatch({ type: "ERROR", error: String(e) });
-      setNotice(String(e));
+      walletDispatch({ type: "ERROR", error: formatWalletError(e) });
+      setNotice(formatWalletError(e));
     }
   }
 
@@ -236,13 +236,14 @@ export default function App() {
     } catch (e) {
       if (journal && !submittedHash) {
         try {
-          if (/reject|denied|4001/i.test(String(e))) await removeUnsignedPending(journal.key);
+          if (/reject|denied|4001/i.test(formatWalletError(e))) await removeUnsignedPending(journal.key);
           else await updatePending(journal.key, { state: "RECONCILE" });
         } catch { /* signing is already blocked by unreliable storage */ }
       }
       refreshJournal();
-      setTransactionPhase(submittedHash ? "RECONCILIATION_REQUIRED" : /reject|denied|4001/i.test(String(e)) ? "REJECTED" : "FAILED");
-      setNotice(submittedHash ? `RECONCILIATION_REQUIRED — transaction ${short(submittedHash)} was submitted but its journal update failed. Do not resubmit.` : String(e));
+      const message = formatWalletError(e);
+      setTransactionPhase(submittedHash ? "RECONCILIATION_REQUIRED" : /reject|denied|4001/i.test(message) ? "REJECTED" : "FAILED");
+      setNotice(submittedHash ? `RECONCILIATION_REQUIRED — transaction ${short(submittedHash)} was submitted but its journal update failed. Do not resubmit.` : message);
     }
   }
 
@@ -280,7 +281,7 @@ export default function App() {
     } catch (e) {
       await updatePending(item.key, { state: "RECONCILE" });
       setTransactionPhase("RECONCILIATION_REQUIRED");
-      setNotice(`RECONCILE — ${String(e)}`);
+      setNotice(`RECONCILE — ${formatWalletError(e)}`);
     }
     refreshJournal();
   }
@@ -785,7 +786,7 @@ export default function App() {
                             setHistory(val);
                             setNotice(val ? `Revision ${rev} loaded.` : `Revision ${rev} not found.`);
                           } catch (e) {
-                            setNotice(String(e));
+                            setNotice(formatWalletError(e));
                           }
                         }}
                       >

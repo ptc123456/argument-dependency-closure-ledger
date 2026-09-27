@@ -31,6 +31,23 @@ export type WalletAction<TWriteClient> =
 type AnnounceEvent = CustomEvent<{ info?: { uuid?: string; name?: string; rdns?: string }; provider?: Provider }>;
 const LABELS: Record<WalletId, string> = { metamask: "MetaMask", okx: "OKX Wallet", rabby: "Rabby" };
 export const STUDIO_DEVNET_CHAIN_ID = "0xf22f";
+export function formatWalletError(error: unknown): string {
+  if (typeof error === "string" && error.trim()) return error;
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object") {
+    const value = error as { message?: unknown; code?: unknown; reason?: unknown };
+    const message = typeof value.message === "string" && value.message.trim() ? value.message.trim() : undefined;
+    const code = typeof value.code === "string" || typeof value.code === "number" ? String(value.code) : undefined;
+    if (message && code) return `${message} (code ${code})`;
+    if (message) return message;
+    if (typeof value.reason === "string" && value.reason.trim()) return value.reason.trim();
+    try {
+      const serialized = JSON.stringify(error);
+      if (serialized && serialized !== "{}") return serialized;
+    } catch { /* fall through to a safe generic message */ }
+  }
+  return "Wallet request failed.";
+}
 export const initialWalletState = <TWriteClient>(providers: WalletOption[] = []): WalletState<TWriteClient> => ({ phase: "DISCONNECTED", providers });
 export function reduceWallet<TWriteClient>(state: WalletState<TWriteClient>, action: WalletAction<TWriteClient>): WalletState<TWriteClient> {
   switch (action.type) {

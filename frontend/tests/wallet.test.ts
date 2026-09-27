@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { connectWallet, createWalletStore, discoverWallets, initialWalletState, reduceWallet, selectWalletView, validateWalletSession, watchWallets, type WalletOption } from "../src/wallet";
+import { connectWallet, createWalletStore, discoverWallets, formatWalletError, initialWalletState, reduceWallet, selectWalletView, validateWalletSession, watchWallets, type WalletOption } from "../src/wallet";
+
+describe("wallet error formatting", () => {
+  it("shows structured provider errors instead of [object Object]", () => {
+    expect(formatWalletError({ code: 4001, message: "User rejected the request" })).toBe("User rejected the request (code 4001)");
+    expect(formatWalletError({ reason: "Wallet is locked" })).toBe("Wallet is locked");
+    expect(formatWalletError({ detail: "unavailable" })).toBe('{"detail":"unavailable"}');
+  });
+});
 import { listPending } from "../src/pending";
 
 describe("wallet discovery", () => {
