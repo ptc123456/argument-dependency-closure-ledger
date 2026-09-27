@@ -20,3 +20,6 @@ docs/POST-DEPLOY-*.md
 docs/DEPLOYMENT-MANIFEST.md
 docs/STUDIO-E2E-PLAN.md
 docs/RPC-BUDGET.md
+
+.vercel
+.env*
