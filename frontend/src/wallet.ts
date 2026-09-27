@@ -30,7 +30,7 @@ export type WalletAction<TWriteClient> =
   | { type: "DISCONNECT" };
 type AnnounceEvent = CustomEvent<{ info?: { uuid?: string; name?: string; rdns?: string }; provider?: Provider }>;
 const LABELS: Record<WalletId, string> = { metamask: "MetaMask", okx: "OKX Wallet", rabby: "Rabby" };
-export const STUDIONET_CHAIN_ID = "0xf22f";
+export const STUDIO_DEVNET_CHAIN_ID = "0xf22f";
 export const initialWalletState = <TWriteClient>(providers: WalletOption[] = []): WalletState<TWriteClient> => ({ phase: "DISCONNECTED", providers });
 export function reduceWallet<TWriteClient>(state: WalletState<TWriteClient>, action: WalletAction<TWriteClient>): WalletState<TWriteClient> {
   switch (action.type) {
@@ -38,13 +38,13 @@ export function reduceWallet<TWriteClient>(state: WalletState<TWriteClient>, act
     case "SET_PROVIDERS": return { ...state, providers: action.providers };
     case "OPEN_CHOOSER": return { ...state, phase: "CHOOSER_OPEN", error: undefined };
     case "CLOSE_CHOOSER": return state.session
-      ? { ...state, phase: state.session.chainId === STUDIONET_CHAIN_ID ? "CONNECTED" : "WRONG_CHAIN" }
+      ? { ...state, phase: state.session.chainId === STUDIO_DEVNET_CHAIN_ID ? "CONNECTED" : "WRONG_CHAIN" }
       : { phase: "DISCONNECTED", providers: state.providers };
     case "CONNECTING": return { phase: "CONNECTING", providers: state.providers, session: undefined, writeClient: undefined };
     case "CONNECTED": return { phase: "CONNECTED", providers: state.providers, session: action.session, writeClient: action.writeClient };
     case "WRONG_CHAIN": return { phase: "WRONG_CHAIN", providers: state.providers, session: action.session, error: action.error };
     case "ACCOUNT_CHANGED": return state.session
-      ? { ...state, phase: state.session.chainId === STUDIONET_CHAIN_ID ? "CONNECTED" : "WRONG_CHAIN", session: { ...state.session, account: action.account }, writeClient: state.session.chainId === STUDIONET_CHAIN_ID ? action.writeClient : undefined }
+      ? { ...state, phase: state.session.chainId === STUDIO_DEVNET_CHAIN_ID ? "CONNECTED" : "WRONG_CHAIN", session: { ...state.session, account: action.account }, writeClient: state.session.chainId === STUDIO_DEVNET_CHAIN_ID ? action.writeClient : undefined }
       : state;
     case "CHAIN_VALID": return state.session ? { phase: "CONNECTED", providers: state.providers, session: { ...state.session, chainId: action.chainId }, writeClient: action.writeClient } : state;
     case "ERROR": return { phase: "ERROR", providers: state.providers, error: action.error };
@@ -116,8 +116,8 @@ export async function validateWalletSession(session: WalletSession, contract: `0
     session.option.provider.request({ method: "eth_getBalance", params: [session.account, "latest"] }) as Promise<string>
   ]);
   if (accounts?.[0]?.toLowerCase() !== session.account) throw new Error("The selected wallet account changed. Reconnect before writing.");
-  if (chainId.toLowerCase() !== STUDIONET_CHAIN_ID) throw new Error("Wrong chain: switch the selected wallet to Studionet before signing.");
-  if (!code || code === "0x" || code === "0x0") throw new Error("No contract is deployed at this address on Studionet.");
+  if (chainId.toLowerCase() !== STUDIO_DEVNET_CHAIN_ID) throw new Error("Wrong chain: switch the selected wallet to Studio Devnet before signing.");
+  if (!code || code === "0x" || code === "0x0") throw new Error("No contract is deployed at this address on Studio Devnet.");
   if (BigInt(balance || "0x0") === 0n) throw new Error("The selected account has no spendable GEN for this action.");
 }
 export function bindWalletSession(provider: Provider, handlers: { accounts(value: unknown): void; chain(value: unknown): void; disconnect(): void }) {

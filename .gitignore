@@ -7,3 +7,16 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+
+# Governance, review, deployment and task-local evidence are not public release files.
+AGENTS.md
+CLAUDE.md
+RESEARCH-HANDOFF.md
+STAGE-*.md
+docs/IMPLEMENTATION-*.md
+docs/PRE-DEPLOY-*.md
+docs/PREDEPLOY-*.md
+docs/POST-DEPLOY-*.md
+docs/DEPLOYMENT-MANIFEST.md
+docs/STUDIO-E2E-PLAN.md
+docs/RPC-BUDGET.md

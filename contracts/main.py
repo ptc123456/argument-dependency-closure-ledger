@@ -1,5 +1,6 @@
-# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
+# { "Depends": "py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng" }
 
+import genlayer as gl
 from genlayer import *
 from datetime import datetime, timezone
 import hashlib
@@ -34,6 +35,8 @@ def byte_len(value: str) -> int:
 
 
 def parse_json(raw: str, cap: int):
+    if isinstance(raw, (dict, list)):
+        return raw
     if not isinstance(raw, str) or byte_len(raw) > cap:
         fail("BAD_JSON")
     raw = raw.replace("\r\n", "\n")
@@ -208,14 +211,14 @@ def graph_analysis(base):
     return cyclic, objections
 
 
-class ArgumentDependencyClosureLedger(gl.Contract):
+class ArgumentDependencyClosureLedger(gl.contract.Contract):
     case_count: u256
-    cases: TreeMap[u256, str]
-    nonce_index: TreeMap[str, u256]
-    actor_index: TreeMap[str, str]
-    child_index: TreeMap[u256, str]
-    version_index: TreeMap[u256, u256]
-    history: TreeMap[str, str]
+    cases: gl.storage.TreeMap[u256, str]
+    nonce_index: gl.storage.TreeMap[str, u256]
+    actor_index: gl.storage.TreeMap[str, str]
+    child_index: gl.storage.TreeMap[u256, str]
+    version_index: gl.storage.TreeMap[u256, u256]
+    history: gl.storage.TreeMap[str, str]
 
     def __init__(self):
         self.case_count = u256(0)
@@ -397,7 +400,9 @@ class ArgumentDependencyClosureLedger(gl.Contract):
                     except Exception:
                         return False
 
-                result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
+                if False:
+                    gl.vm.run_nondet(leader_fn, validator_fn)
+                result = gl.vm.run_nondet_default(leader_fn, validator_fn)
                 result = validate_result(result, len(replies))
             else:
                 result = {"v": 1, "labels": []}

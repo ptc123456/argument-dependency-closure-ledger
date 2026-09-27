@@ -3,7 +3,7 @@ import { bindWriteClient, listCases, readCase, readCreated, readVersion, reconci
 import { listPending, removeUnsignedPending, reservePending, updatePending, type PendingWrite } from "./pending";
 import { actionsForPhase } from "./workflow";
 import { transactionStatusProps, type TransactionPhase } from "./transaction";
-import { bindWalletSession, connectWallet, createWalletStore, discoverWallets, selectWalletView, STUDIONET_CHAIN_ID, validateWalletSession, watchWallets, type WalletOption } from "./wallet";
+import { bindWalletSession, connectWallet, createWalletStore, discoverWallets, selectWalletView, STUDIO_DEVNET_CHAIN_ID, validateWalletSession, watchWallets, type WalletOption } from "./wallet";
 import { ResponseActions } from "./ResponseActions";
 
 const SAMPLE_GRAPH = JSON.stringify(
@@ -153,7 +153,7 @@ export default function App() {
     try {
       const page = await listCases(contract);
       setIds(page?.ids || []);
-      setNotice("Case index loaded from Studionet.");
+      setNotice("Case index loaded from Studio Devnet.");
     } catch (e) {
       setNotice(String(e));
     }
@@ -175,9 +175,9 @@ export default function App() {
     walletDispatch({ type: "CONNECTING", option });
     try {
       const next = await connectWallet(option);
-      if (next.chainId !== STUDIONET_CHAIN_ID) {
-        walletDispatch({ type: "WRONG_CHAIN", session: next, error: "Wrong chain: switch the selected wallet to Studionet before signing." });
-        setNotice("Wrong chain: switch the selected wallet to Studionet before signing.");
+      if (next.chainId !== STUDIO_DEVNET_CHAIN_ID) {
+        walletDispatch({ type: "WRONG_CHAIN", session: next, error: "Wrong chain: switch the selected wallet to Studio Devnet before signing." });
+        setNotice("Wrong chain: switch the selected wallet to Studio Devnet before signing.");
         return;
       }
       walletDispatch({ type: "CONNECTED", session: next, writeClient: bindWriteClient(option.provider, next.account) });
@@ -199,7 +199,7 @@ export default function App() {
   }
 
   async function write(method: string) {
-    if (!wallet.canWrite || !wallet.session || !walletState.writeClient || !validContract) return setNotice("Connect a supported wallet on Studionet and enter a contract address.");
+    if (!wallet.canWrite || !wallet.session || !walletState.writeClient || !validContract) return setNotice("Connect a supported wallet on Studio Devnet and enter a contract address.");
     const session = wallet.session;
     const args: unknown[] =
       method === "create_graph"
@@ -215,7 +215,7 @@ export default function App() {
       await validateWalletSession(session, contract);
       journal = await reservePending({
         fingerprint: JSON.stringify([method, args], (_, v) => (typeof v === "bigint" ? v.toString() : v)),
-        chain: "studionet",
+        chain: "studio-dev",
         contract: contract.toLowerCase(),
         caseId: method === "create_graph" ? `nonce:${nonce}` : caseId,
         account: session.account,
@@ -317,9 +317,9 @@ export default function App() {
     },
     chain: (value) => {
       const chainId = String(value).toLowerCase();
-      if (chainId === STUDIONET_CHAIN_ID) walletDispatch({ type: "CHAIN_VALID", chainId, writeClient: bindWriteClient(wallet.session!.option.provider, wallet.session!.account) });
-      else walletDispatch({ type: "WRONG_CHAIN", session: { ...wallet.session!, chainId }, error: "Wrong chain: switch the selected wallet to Studionet before signing." });
-      setNotice(chainId === STUDIONET_CHAIN_ID ? "Studionet connection restored." : "Wrong chain: switch the selected wallet to Studionet before signing.");
+      if (chainId === STUDIO_DEVNET_CHAIN_ID) walletDispatch({ type: "CHAIN_VALID", chainId, writeClient: bindWriteClient(wallet.session!.option.provider, wallet.session!.account) });
+      else walletDispatch({ type: "WRONG_CHAIN", session: { ...wallet.session!, chainId }, error: "Wrong chain: switch the selected wallet to Studio Devnet before signing." });
+      setNotice(chainId === STUDIO_DEVNET_CHAIN_ID ? "Studio Devnet connection restored." : "Wrong chain: switch the selected wallet to Studio Devnet before signing.");
     },
     disconnect
   }) : undefined, [wallet.session?.option.provider]);
@@ -371,7 +371,7 @@ export default function App() {
           <BrandMark className="brand-mark" />
           <div className="brand-text">
             <span className="brand-title">Argument Dependency Closure Ledger</span>
-            <span className="brand-badge">Studionet</span>
+            <span className="brand-badge">Studio Devnet</span>
           </div>
         </div>
 
@@ -427,7 +427,7 @@ export default function App() {
         <section className="setup-band" aria-label="Contract Connection and Public Read Controls">
           <div className="setup-grid">
             <div className="setup-field">
-              <label htmlFor="contract-address">Studionet Contract Address</label>
+              <label htmlFor="contract-address">Studio Devnet Contract Address</label>
               <div className="input-group">
                 <input
                   id="contract-address"
@@ -1098,7 +1098,7 @@ export default function App() {
             <div className="modal-header">
               <div className="modal-title-group">
                 <h2 id="wallet-modal-title" className="modal-title">Connect Wallet</h2>
-                <p className="modal-caption">Select a detected supported wallet to sign transactions on Studionet.</p>
+                <p className="modal-caption">Select a detected supported wallet to sign transactions on Studio Devnet.</p>
               </div>
               <button
                 type="button"

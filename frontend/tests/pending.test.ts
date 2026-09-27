@@ -21,7 +21,7 @@ const locks = {
 };
 
 const input = (caseId: string) => ({
-  fingerprint: `put:${caseId}`, chain: "studionet", contract: "0xabc", caseId,
+  fingerprint: `put:${caseId}`, chain: "studio-dev", contract: "0xabc", caseId,
   account: "0xdef", method: "put_replies", args: [caseId], preRevision: "2"
 });
 
